@@ -5,7 +5,6 @@ import pickle
 
 from typing import List
 
-
 class CycleData:
     def __init__(self,
                  cycle_number: int,
