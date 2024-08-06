@@ -1,16 +1,16 @@
 
 # Install
 pip install -r requirements.txt
-pip install -e .
+pip install -e . --use-pep517
 pip3 install torch torchvision torchaudio
 brew install libomp
 
 # Download Raw Data and Run Preprocessing Scripts
-batteryml download MATR /Users/onesixx/my/git/BatteryML0/batteryml/data/MATR/raw
-batteryml preprocess  MATR /Users/onesixx/my/git/BatteryML0/batteryml/data/MATR/raw  /Users/onesixx/my/git/BatteryML0/batteryml/data/MATR/preprocess
+batteryml download MATR /Users/onesixx/my/git/BatteryML0/batteryml/data/raw/MATR
+batteryml preprocess  MATR /Users/onesixx/my/git/BatteryML0/batteryml/data/raw/MATR  /Users/onesixx/my/git/BatteryML0/batteryml/data/processed/MATR
 
 cycler preprocessing
-batteryml preprocess  ARBIN /Users/onesixx/my/git/BatteryML0/batteryml/data/MATR/raw  /Users/onesixx/my/git/BatteryML0/data/MATR/preprocess --config /path..
+batteryml preprocess  ARBIN /Users/onesixx/my/git/BatteryML0/batteryml/data/raw/ARBIN  /Users/onesixx/my/git/BatteryML0/batteryml/data/processed/ARBIN --config /path..
 
 # Run
 baseline.ipynb

@@ -6,6 +6,10 @@ from __future__ import annotations
 import os
 import torch
 import pickle
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 import random
 import shutil
 import hashlib
@@ -20,6 +24,7 @@ from batteryml.builders import MODELS
 from batteryml.utils import import_config
 from batteryml.models.base import BaseModel
 
+from pathlib import Path, PosixPath
 
 class Pipeline:
     def __init__(self, config_path: Path | str, workspace: Path | str):
@@ -47,6 +52,8 @@ class Pipeline:
             return
 
         # Prepare dataset
+        print(f'Prepare dataset for {self.config_path}.')
+        print(f'dataset: {dataset}')
         if dataset is None:
             dataset, raw_data = build_dataset(self.config, device)
             self.raw_data = raw_data
@@ -117,9 +124,19 @@ class Pipeline:
                 'data': dataset.to('cpu'),
                 'seed': seed,
             }
-            filename = f'predictions_seed_{seed}_{ts}.pkl'
-            with open(Path(self.config['workspace']) / filename, 'wb') as f:
-                pickle.dump(obj, f)
+            # filename = f'predictions_seed_{seed}_{ts}.pkl'
+
+            # with open(Path(self.config['workspace']) / filename, 'wb') as f:
+            #     pickle.dump(obj, f)
+            # Convert the dictionary to a pandas DataFrame
+            df = pd.DataFrame([obj])
+
+            # Convert the DataFrame to a pyarrow Table
+            table = pa.Table.from_pandas(df)
+
+            # Write the Table to a parquet file
+            filename = f'predictions_seed_{seed}_{ts}.parquet'
+            pq.write_table(table, Path(self.config['workspace']) / filename)
 
     def _prepare_model(self,
                        ckpt_to_resume: str | None = None,
@@ -166,7 +183,7 @@ def load_config(config_path: str,
             workspace = Path(workspace)
     else:
         # workspace = Path.cwd() / 'workspaces' / config_path.stem
-        workspace = Path.cwd() / 'workspaces' / config_path.relative_to('configs').with_suffix('')  
+        workspace = Path.cwd() / 'workspaces' / config_path.relative_to('configs').with_suffix('')
 
     if workspace is not None and workspace.exists():
         assert workspace.is_dir(), workspace
@@ -182,6 +199,29 @@ def load_config(config_path: str,
 def build_dataset(configs: dict,
                   device: str,
                   config_fields: list | None = None):
+    # configs = {
+    #     'model':
+    #         {'name': 'LinearRegressionRULPredictor'},
+    #     'train_test_split':
+    #         {'name': 'MATRPrimaryTestTrainTestSplitter',
+    #          'cell_data_path': 'batteryml/data/processed/MATR'},
+    #     'feature': {
+    #         'name': 'VarianceModelFeatureExtractor',
+    #         'interp_dims': 1000,
+    #         'critical_cycles': [...],
+    #         'use_precalculated_qdlin': True},
+    #     'label': {
+    #         'name': 'RULLabelAnnotator'},
+    #     'feature_transformation': {
+    #         'name': 'ZScoreDataTransformation'},
+    #     'label_transformation': {
+    #         'name': 'SequentialDataTransformation',
+    #         'transformations': [...]},
+    #     'workspace': PosixPath('workspaces')
+    # }
+    # device = 'cpu'
+    # config_fields = None
+    # config_fields = ['train_test_split', 'feature', 'label', 'feature_transformation', 'label_transformation']
     strings = []
     config_fields = config_fields or CONFIG_FIELDS[1:]
     for field in config_fields:
@@ -194,10 +234,15 @@ def build_dataset(configs: dict,
 
     if cache_file.exists():
         print(f'Load datasets from cache {str(cache_file)}.')
-        with open(cache_file, 'rb') as f:
-            data = pickle.load(f)
-            dataset = data['dataset']
-            raw_data = data['raw_data']
+        # with open(cache_file, 'rb') as f:
+        #     data = pickle.load(f)
+        #     dataset = data['dataset']
+        #     raw_data = data['raw_data']
+        df = pd.read_parquet(cache_file)
+        # Convert the DataFrame to a dictionary
+        data = df.to_dict(orient='records')[0]
+        dataset = data['dataset']
+        raw_data = data['raw_data']
     else:
         task = Task(
             label_annotator=configs['label'],
@@ -205,7 +250,7 @@ def build_dataset(configs: dict,
             train_test_splitter=configs['train_test_split'],
             feature_transformation=configs['feature_transformation'],
             label_transformation=configs['label_transformation'])
-
+        print(f'Build dataset for {configs["model"]["name"]}.')
         dataset = task.build()
         train_cells, test_cells = task.get_raw_data()
         data = {'dataset':dataset,

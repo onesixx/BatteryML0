@@ -2,8 +2,12 @@
 # Copyright (c) Microsoft Corporation.
 
 import pickle
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 from typing import List
+
 
 class CycleData:
     def __init__(self,
@@ -138,8 +142,16 @@ class BatteryData:
         return result
 
     def dump(self, path):
-        with open(path, 'wb') as fout:
-            pickle.dump(self.to_dict(), fout)
+        # with open(path, 'wb') as fout:
+        #     pickle.dump(self.to_dict(), fout)
+        data_dict = self.to_dict()
+        # Convert the dictionary to a pandas DataFrame
+        df = pd.DataFrame([data_dict])
+        # Convert the DataFrame to a pyarrow Table
+        table = pa.Table.from_pandas(df)
+        # Write the Table to a parquet file
+        pq.write_table(table, path)
+
 
     def print_description(self):
         print(f'**************description of battery cell {self.cell_id}**************')
@@ -148,11 +160,16 @@ class BatteryData:
                 print(f'cycle length: {len(val)}')
             elif val:
                 print(f'{key}: {val}')
-
+    #path='processed/MATR/MATR_b1c1.pkl'
     @staticmethod
     def load(path):
-        with open(path, 'rb') as fin:
-            obj = pickle.load(fin)
+        # with open(path, 'rb') as fin:
+        #     obj = pickle.load(fin)
+        # Read the parquet file into a pandas DataFrame
+        df = pd.read_parquet(path)
+        # Convert the DataFrame to a dictionary
+        obj = df.to_dict(orient='records')[0]
+
         if obj['charge_protocol'] is not None:
             obj['charge_protocol'] = [
                 CyclingProtocol(**protocol)
