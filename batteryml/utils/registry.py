@@ -1,5 +1,6 @@
 # Licensed under the MIT License.
 # Copyright (c) Microsoft Corporation.
+from rose.env.log_set import logger, setup_logging
 
 class Registry:
     """Build a custom class instance using a dict.
@@ -38,7 +39,8 @@ class Registry:
         def _register(cls):
             module_name = name or cls.__name__
             if module_name in self.class_mapping:
-                raise ValueError(f'class {module_name} is already registered!')
+                logger.warning(f'class {module_name} is already registered!')
+                # raise ValueError(f'class {module_name} is already registered!')
             self.class_mapping[module_name] = cls
             return cls
         return _register
